@@ -141,7 +141,27 @@ Example:
 
 This server implements the Model Context Protocol (MCP) which allows it to be easily integrated with LLM clients that support the protocol. For more information about MCP, visit [the MCP repository](https://github.com/modelcontextprotocol/mcp).
 
-### VScode MCP, RooCode example
+### Vscode MCP, RooCode local example
+
+```bash 
+# compile & install cratedocs in ~/.cargo/bin
+cargo install --path . 
+```
+in `mcp_settings.json`
+```json
+{
+  "mcpServers":{
+    "rust-crate-local": {
+      "command": "cratedocs",
+      "args": [
+        "stdio"
+      ],
+    }    
+  }
+}
+```
+
+### VScode MCP, RooCode hosted example
 
 ```json
 // Roo Code, use bunx or npx, sessionId= 
