@@ -141,6 +141,28 @@ Example:
 
 This server implements the Model Context Protocol (MCP) which allows it to be easily integrated with LLM clients that support the protocol. For more information about MCP, visit [the MCP repository](https://github.com/modelcontextprotocol/mcp).
 
+### VScode MCP, RooCode example
+
+```json
+// Roo Code, use bunx or npx, sessionId= 
+{
+  "mcpServers":{
+    "rust-crate-docs": {
+      "command": "bunx",
+      "args": [
+        "-y",
+        "mcp-remote@latest",
+        "http://127.0.0.1:3000/sse?sessionId=",
+        "--allow-http",
+        "--transport sse-only",
+        "--debug"
+      ]
+    }
+  }
+}
+```
+
+
 ## License
 
 MIT License
