@@ -40,11 +40,11 @@ enum Commands {
     },
     /// Test tools directly from the CLI
     Test {
-        /// The tool to test (lookup_crate, search_crates, lookup_item)
+        /// The tool to test (lookup_crate, search_crates, lookup_item, list_crate_items)
         #[arg(long, default_value = "lookup_crate")]
         tool: String,
         
-        /// Crate name for lookup_crate and lookup_item
+        /// Crate name for lookup_crate, lookup_item, and list_crate_items
         #[arg(long)]
         crate_name: Option<String>,
         
@@ -64,6 +64,18 @@ enum Commands {
         #[arg(long)]
         limit: Option<u32>,
         
+        /// Filter by item type for list_crate_items (e.g., struct, enum, trait)
+        #[arg(long)]
+        item_type: Option<String>,
+        
+        /// Filter by visibility for list_crate_items (e.g., pub, private)
+        #[arg(long)]
+        visibility: Option<String>,
+        
+        /// Filter by module path for list_crate_items (e.g., serde::de)
+        #[arg(long)]
+        module: Option<String>,
+        
         /// Output format (markdown, text, json)
         #[arg(long, default_value = "markdown")]
         format: Option<String>,
@@ -71,11 +83,11 @@ enum Commands {
         /// Output file path (if not specified, results will be printed to stdout)
         #[arg(long)]
         output: Option<String>,
-
+    
         /// Summarize output by stripping LICENSE and VERSION sections (TL;DR mode)
         #[arg(long)]
         tldr: bool,
-
+    
         /// Maximum number of tokens for output (token-aware truncation)
         #[arg(long)]
         max_tokens: Option<usize>,
@@ -100,6 +112,9 @@ async fn main() -> Result<()> {
             query,
             version,
             limit,
+            item_type,
+            visibility,
+            module,
             format,
             output,
             tldr,
@@ -112,6 +127,9 @@ async fn main() -> Result<()> {
             query,
             version,
             limit,
+            item_type,
+            visibility,
+            module,
             format,
             output,
             tldr,
@@ -212,6 +230,9 @@ struct TestToolConfig {
     query: Option<String>,
     version: Option<String>,
     limit: Option<u32>,
+    item_type: Option<String>,
+    visibility: Option<String>,
+    module: Option<String>,
     format: Option<String>,
     output: Option<String>,
     tldr: bool,
@@ -233,6 +254,9 @@ async fn run_test_tool(config: TestToolConfig) -> Result<()> {
         tldr,
         max_tokens,
         debug,
+        item_type,
+        visibility,
+        module,
     } = config;
     // Print help information if the tool is "help"
     if tool == "help" {
@@ -307,6 +331,21 @@ async fn run_test_tool(config: TestToolConfig) -> Result<()> {
                 "query": query,
                 "limit": limit,
             })
+        },
+        "list_crate_items" => {
+            let crate_name = crate_name.ok_or_else(||
+                anyhow::anyhow!("--crate-name is required for list_crate_items tool"))?;
+            let version = version.ok_or_else(||
+                anyhow::anyhow!("--version is required for list_crate_items tool"))?;
+            
+            let arguments = json!({
+                "crate_name": crate_name,
+                "version": version,
+                "item_type": item_type,
+                "visibility": visibility,
+                "module": module,
+            });
+            arguments
         },
         _ => return Err(anyhow::anyhow!("Unknown tool: {}", tool)),
     };
