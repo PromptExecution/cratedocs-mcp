@@ -5,7 +5,6 @@ use std::path::Path;
 use tar::Archive;
 use flate2::read::GzDecoder;
 use syn::{File, Item};
-use tokio::fs as tokio_fs;
 
 /// Represents filters for item listing.
 #[derive(Debug)]
@@ -46,24 +45,65 @@ pub async fn list_crate_items(
     let crate_path = download_and_cache_crate(crate_name, version).await?;
     let mut items = Vec::new();
 
-    for entry in fs::read_dir(crate_path)? {
-        let entry = entry?;
-        let path = entry.path();
-        if path.extension().and_then(|ext| ext.to_str()) == Some("rs") {
-            let content = fs::read_to_string(&path)?;
-            let parsed_file: File = syn::parse_file(&content)?;
+    // Most crates have their source in a "src" subdirectory
+    let src_path = Path::new(&crate_path).join("src");
 
-            for item in parsed_file.items {
-                match item {
-                    Item::Struct(_) if filters.as_ref().map_or(true, |f| f.item_type.as_deref() == Some("struct")) => items.push(format!("{:?}", item)),
-                    Item::Enum(_) if filters.as_ref().map_or(true, |f| f.item_type.as_deref() == Some("enum")) => items.push(format!("{:?}", item)),
-                    Item::Trait(_) if filters.as_ref().map_or(true, |f| f.item_type.as_deref() == Some("trait")) => items.push(format!("{:?}", item)),
-                    Item::Fn(_) if filters.as_ref().map_or(true, |f| f.item_type.as_deref() == Some("fn")) => items.push(format!("{:?}", item)),
-                    _ => {}
+    fn visit_rs_files<F: FnMut(&Path)>(dir: &Path, cb: &mut F) {
+        if let Ok(entries) = fs::read_dir(dir) {
+            for entry in entries.flatten() {
+                let path = entry.path();
+                if path.is_dir() {
+                    visit_rs_files(&path, cb);
+                } else if path.extension().and_then(|ext| ext.to_str()) == Some("rs") {
+                    cb(&path);
                 }
             }
         }
     }
 
-    Ok(items.join("\n"))
+    visit_rs_files(&src_path, &mut |path: &Path| {
+        if let Ok(content) = fs::read_to_string(path) {
+            if let Ok(parsed_file) = syn::parse_file(&content) {
+                for item in parsed_file.items {
+                    if let Item::Struct(s) = &item {
+                        if filters.as_ref().map_or(true, |f| f.item_type.as_deref().map_or(true, |ty| ty == "struct")) {
+                            items.push(("Structs", format!("{}", s.ident)));
+                        }
+                    }
+                    if let Item::Enum(e) = &item {
+                        if filters.as_ref().map_or(true, |f| f.item_type.as_deref().map_or(true, |ty| ty == "enum")) {
+                            items.push(("Enums", format!("{}", e.ident)));
+                        }
+                    }
+                    if let Item::Trait(t) = &item {
+                        if filters.as_ref().map_or(true, |f| f.item_type.as_deref().map_or(true, |ty| ty == "trait")) {
+                            items.push(("Traits", format!("{}", t.ident)));
+                        }
+                    }
+                    if let Item::Fn(f) = &item {
+                        if filters.as_ref().map_or(true, |f| f.item_type.as_deref().map_or(true, |ty| ty == "fn")) {
+                            items.push(("Functions", format!("{}", f.sig.ident)));
+                        }
+                    }
+                }
+            }
+        }
+    });
+
+    use std::collections::BTreeMap;
+    let mut grouped: BTreeMap<&str, Vec<String>> = BTreeMap::new();
+    for (kind, name) in items {
+        grouped.entry(kind).or_default().push(name);
+    }
+
+    let mut output = String::new();
+    for (kind, names) in grouped {
+        output.push_str(&format!("## {}\n", kind));
+        for name in names {
+            output.push_str(&format!("- {}\n", name));
+        }
+        output.push('\n');
+    }
+
+    Ok(output)
 }

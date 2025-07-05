@@ -49,6 +49,7 @@ html2md = "0.2.14"
 regex = "1"
 syn = { version = "2.0.104", features = ["full"] }
 flate2 = "1.1.2"
+tar = "0.4.44"
 
 [dev-dependencies]
 # Testing utilities
