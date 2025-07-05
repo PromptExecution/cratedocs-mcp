@@ -40,6 +40,9 @@ cargo run --bin cratedocs http --debug
 
 ### Directly Testing Documentation Tools
 
+# Enumerate crate items
+cargo run --bin cratedocs test --tool list_crate_items --crate-name serde --version 1.0.0 --item-type struct
+cargo run --bin cratedocs test --tool list_crate_items --crate-name tokio --version 1.28.0 --visibility pub --module tokio::sync
 You can directly test the documentation tools from the command line without starting a server:
 
 ```bash
