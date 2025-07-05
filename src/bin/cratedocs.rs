@@ -476,4 +476,56 @@ Some real documentation here.
         let output = apply_tldr(input);
         assert_eq!(output.trim(), input.trim());
     }
+#[test]
+fn test_apply_tldr_no_headings() {
+    let input = r#"
+This is plain text without any headings.
+It should remain unchanged after processing.
+"#;
+    let output = apply_tldr(input);
+    assert_eq!(output.trim(), input.trim());
+}
+
+#[test]
+fn test_apply_tldr_malformed_markdown() {
+    let input = r#"
+#LICENSE
+This is a malformed license heading.
+#VERSION
+This is a malformed version heading.
+"#;
+    let output = apply_tldr(input);
+    assert!(!output.to_lowercase().contains("license"));
+    assert!(!output.to_lowercase().contains("version"));
+}
+
+#[test]
+fn test_apply_tldr_large_input() {
+    let input = r#"
+# Versions
+Version 1.0.0
+Version 2.0.0
+
+# LICENSE
+MIT License text.
+
+# Usage
+Some real documentation here.
+
+# Another Section
+More docs.
+
+# LICENSE
+Another license section.
+
+# Versions
+Another version section.
+"#;
+    let output = apply_tldr(input);
+    assert!(!output.to_lowercase().contains("license"));
+    assert!(!output.to_lowercase().contains("version"));
+    assert!(output.contains("Usage"));
+    assert!(output.contains("Another Section"));
+    assert!(output.contains("Some real documentation here."));
+}
 }

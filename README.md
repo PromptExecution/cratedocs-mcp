@@ -64,6 +64,8 @@ cargo run --bin cratedocs test --tool lookup_crate --crate-name tokio --format t
 
 # Save output to a file
 cargo run --bin cratedocs test --tool lookup_crate --crate-name tokio --output tokio-docs.md
+# Summarize output by stripping LICENSE and VERSION sections
+cargo run --bin cratedocs test --tool lookup_crate --crate-name tokio --tldr
 ```
 
 By default, the HTTP server will listen on `http://127.0.0.1:8080/sse`.
