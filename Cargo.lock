@@ -443,6 +443,7 @@ dependencies = [
  "anyhow",
  "axum",
  "clap",
+ "flate2",
  "futures",
  "html2md",
  "hyper 0.14.32",
@@ -455,6 +456,7 @@ dependencies = [
  "reqwest",
  "serde",
  "serde_json",
+ "syn",
  "tokenizers",
  "tokio",
  "tokio-util",
@@ -610,7 +612,7 @@ dependencies = [
  "libc",
  "option-ext",
  "redox_users",
- "windows-sys 0.59.0",
+ "windows-sys 0.60.2",
 ]
 
 [[package]]
@@ -2455,9 +2457,9 @@ checksum = "13c2bddecc57b384dee18652358fb23172facb8a2c51ccc10d74c157bdea3292"
 
 [[package]]
 name = "syn"
-version = "2.0.99"
+version = "2.0.104"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e02e925281e18ffd9d640e234264753c43edc62d64b2d4cf898f1bc5e75f3fc2"
+checksum = "17b6f705963418cdb9927482fa304bc562ece2fdd4f616084c50b7023b435a40"
 dependencies = [
  "proc-macro2",
  "quote",
