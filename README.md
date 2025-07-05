@@ -55,6 +55,9 @@ cargo run --bin cratedocs test --tool lookup_item --crate-name tokio --item-path
 # Look up documentation for a specific version
 cargo run --bin cratedocs test --tool lookup_item --crate-name serde --item-path Serialize --version 1.0.147
 
+# Look up a trait in a crate (e.g., the Serialize trait in serde) & a specific version
+cargo run --bin cratedocs test --tool lookup_item --crate-name serde --item-path serde::Serialize --version 1.0.160
+
 # Search for crates
 cargo run --bin cratedocs test --tool search_crates --query logger --limit 5
 
@@ -64,6 +67,9 @@ cargo run --bin cratedocs test --tool lookup_crate --crate-name tokio --format t
 
 # Save output to a file
 cargo run --bin cratedocs test --tool lookup_crate --crate-name tokio --output tokio-docs.md
+
+# Summarize output by stripping LICENSE and VERSION sections, limits to xxxxx tokens (uses huggingface tokenizer)
+cargo run --bin cratedocs test --tool lookup_crate --crate-name tokio --tldr --max_tokens 48000
 ```
 
 By default, the HTTP server will listen on `http://127.0.0.1:8080/sse`.
@@ -186,3 +192,44 @@ in `mcp_settings.json`
 ## License
 
 MIT License
+
+## MCP Tool: `list_crate_items`
+
+The `list_crate_items` tool enumerates all items in a specified Rust crate and version, optionally filtering by item type, visibility, or module path. This is useful for quickly exploring the structure of a crate, generating concise listings for LLMs, or programmatically analyzing crate APIs.
+
+### Usage
+
+```sh
+cargo run --bin cratedocs -- list-crate-items --crate-name serde --version 1.0.0
+```
+
+#### With filters:
+
+- Filter by item type (e.g., struct, enum, trait, fn, macro, mod):
+
+  ```sh
+  cargo run --bin cratedocs -- list-crate-items --crate-name serde --version 1.0.0 --item-type struct
+  ```
+
+- Filter by visibility (e.g., pub, private):
+
+  ```sh
+  cargo run --bin cratedocs -- list-crate-items --crate-name serde --version 1.0.0 --visibility pub
+  ```
+
+- Filter by module path:
+
+  ```sh
+  cargo run --bin cratedocs -- list-crate-items --crate-name serde --version 1.0.0 --module serde::de
+  ```
+
+### Output
+
+The output is a concise, categorized list (JSON or markdown) showing each item's name, type, visibility, and module path.
+
+**Example (stub output):**
+```
+Stub: list_crate_items for crate: serde, version: 1.0.0, filters: Some(ItemListFilters { item_type: Some("struct"), visibility: None, module: None })
+```
+
+When implemented, the output will be a structured list of items matching the filters.

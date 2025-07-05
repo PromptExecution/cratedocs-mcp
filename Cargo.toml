@@ -1,9 +1,10 @@
 [package]
 name = "cratedocs-mcp"
-version = "0.1.0"
+version = "0.2.0"
 edition = "2021"
 description = "Rust Documentation MCP Server for LLM crate assistance"
-authors = ["Claude <noreply@anthropic.com>"]
+authors = ["Brian Horakh <brianh@promptexecution.com>",
+"Claude <noreply@anthropic.com>"]
 license = "MIT"
 repository = "https://github.com/d6e/cratedocs-mcp"
 
@@ -17,6 +18,9 @@ members = [
 mcp-server = { git = "https://github.com/modelcontextprotocol/rust-sdk", rev = "c0bd94dd85a3535cb1580424465140d51bab2a17", package = "mcp-server" }
 mcp-core = { git = "https://github.com/modelcontextprotocol/rust-sdk", rev = "c0bd94dd85a3535cb1580424465140d51bab2a17", package = "mcp-core" }
 mcp-macros = { git = "https://github.com/modelcontextprotocol/rust-sdk", rev = "c0bd94dd85a3535cb1580424465140d51bab2a17", package = "mcp-macros" }
+
+# Tokenizer dependency for token count functionality
+tokenizers = { version = "0.21.2", features = ["http"] }
 
 # HTTP and networking
 tokio = { version = "1", features = ["full"] }
@@ -42,6 +46,7 @@ futures = "0.3"
 rand = "0.8"
 clap = { version = "4.4", features = ["derive"] }
 html2md = "0.2.14"
+regex = "1"
 
 [dev-dependencies]
 # Testing utilities
