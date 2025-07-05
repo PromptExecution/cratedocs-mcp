@@ -11,9 +11,10 @@ This is an MCP (Model Context Protocol) server that provides tools for Rust crat
 ## Installation
 
 ```bash
-git clone https://github.com/d6e/cratedocs-mcp.git
+git clone https://github.com/promptexecution/cratedocs-mcp.git
 cd cratedocs-mcp
 cargo build --release
+cargo install --path .
 ```
 
 ## Running the Server

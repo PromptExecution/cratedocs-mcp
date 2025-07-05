@@ -22,6 +22,8 @@ struct Cli {
 
 #[derive(Subcommand)]
 enum Commands {
+    /// Output the version and exit
+    Version,
     /// Run the server in stdin/stdout mode
     Stdio {
         /// Enable debug logging
@@ -103,6 +105,10 @@ async fn main() -> Result<()> {
     let cli = Cli::parse();
 
     match cli.command {
+        Commands::Version => {
+            println!("{}", env!("CARGO_PKG_VERSION"));
+            Ok(())
+        },
         Commands::Stdio { debug } => run_stdio_server(debug).await,
         Commands::Http { address, debug } => run_http_server(address, debug).await,
         Commands::Test {

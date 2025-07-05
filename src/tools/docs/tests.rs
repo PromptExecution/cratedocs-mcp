@@ -75,8 +75,8 @@ async fn test_list_tools() {
     let router = DocRouter::new();
     let tools = router.list_tools();
     
-    // Should have exactly 3 tools
-    assert_eq!(tools.len(), 3);
+    // Should have exactly 4 tools (lookup_crate, search_crates, lookup_item, list_crate_items)
+    assert_eq!(tools.len(), 4);
     
     // Check tool names
     let tool_names: Vec<String> = tools.iter().map(|t| t.name.clone()).collect();
