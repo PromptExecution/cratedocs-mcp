@@ -9,9 +9,10 @@ use std::net::SocketAddr;
 use tokio::io::{stdin, stdout};
 use tracing_appender::rolling::{RollingFileAppender, Rotation};
 use tracing_subscriber::{self, EnvFilter, layer::SubscriberExt, util::SubscriberInitExt};
+use regex::Regex;
 
 #[derive(Parser)]
-#[command(author, version = "0.1.0", about, long_about = None)]
+#[command(author, version = "0.2.0", about, long_about = None)]
 #[command(propagate_version = true)]
 #[command(disable_version_flag = true)]
 struct Cli {
@@ -70,6 +71,10 @@ enum Commands {
         /// Output file path (if not specified, results will be printed to stdout)
         #[arg(long)]
         output: Option<String>,
+
+        /// Summarize output by stripping LICENSE and VERSION sections (TL;DR mode)
+        #[arg(long)]
+        tldr: bool,
         
         /// Enable debug logging
         #[arg(short, long)]
@@ -84,16 +89,17 @@ async fn main() -> Result<()> {
     match cli.command {
         Commands::Stdio { debug } => run_stdio_server(debug).await,
         Commands::Http { address, debug } => run_http_server(address, debug).await,
-        Commands::Test { 
-            tool, 
-            crate_name, 
-            item_path, 
-            query, 
-            version, 
+        Commands::Test {
+            tool,
+            crate_name,
+            item_path,
+            query,
+            version,
             limit,
             format,
             output,
-            debug 
+            tldr,
+            debug
         } => run_test_tool(TestToolConfig {
             tool,
             crate_name,
@@ -103,6 +109,7 @@ async fn main() -> Result<()> {
             limit,
             format,
             output,
+            tldr,
             debug
         }).await,
     }
@@ -163,6 +170,41 @@ async fn run_http_server(address: String, debug: bool) -> Result<()> {
     Ok(())
 }
 
+// --- TLDR Helper Function ---
+fn apply_tldr(input: &str) -> String {
+    // Remove LICENSE and VERSION(S) sections by skipping lines between those headings and the next heading or EOF.
+    let mut output = Vec::new();
+    let mut skip = false;
+
+    let license_re = Regex::new(r"(?i)^\s*#+\s*license\b").unwrap();
+    let version_re = Regex::new(r"(?i)^\s*#+\s*version(s)?\b").unwrap();
+    let heading_re = Regex::new(r"^\s*#+\s*\S+").unwrap();
+
+    let mut just_skipped_section = false;
+    for line in input.lines() {
+        // Start skipping if we hit a LICENSE or VERSION(S) heading
+        if !skip && (license_re.is_match(line) || version_re.is_match(line)) {
+            skip = true;
+            just_skipped_section = true;
+            continue; // skip the heading line itself
+        }
+        // If we just skipped a section heading, also skip blank lines and lines containing only "license" or "versions"
+        if just_skipped_section && (line.trim().is_empty() || line.trim().eq_ignore_ascii_case("license") || line.trim().eq_ignore_ascii_case("versions") || line.trim().eq_ignore_ascii_case("version")) {
+            continue;
+        }
+        // Stop skipping at the next heading (but do not skip the heading itself)
+        if skip && heading_re.is_match(line) {
+            skip = false;
+            just_skipped_section = false;
+        }
+        if !skip {
+            output.push(line);
+        }
+    }
+    // If the section to skip is at the end, skip will remain true and those lines will be omitted.
+    output.join("\n")
+}
+
 /// Configuration for the test tool
 struct TestToolConfig {
     tool: String,
@@ -173,6 +215,7 @@ struct TestToolConfig {
     limit: Option<u32>,
     format: Option<String>,
     output: Option<String>,
+    tldr: bool,
     debug: bool,
 }
 
@@ -187,6 +230,7 @@ async fn run_test_tool(config: TestToolConfig) -> Result<()> {
         limit,
         format,
         output,
+        tldr,
         debug,
     } = config;
     // Print help information if the tool is "help"
@@ -210,6 +254,7 @@ async fn run_test_tool(config: TestToolConfig) -> Result<()> {
         println!("\nOutput options:");
         println!("  --format       - Output format: markdown (default), text, json");
         println!("  --output       - Write output to a file instead of stdout");
+        println!("  --tldr         - Summarize output by stripping LICENSE and VERSION sections");
         return Ok(());
     }
     
@@ -289,7 +334,13 @@ async fn run_test_tool(config: TestToolConfig) -> Result<()> {
     if !result.is_empty() {
         for content in result {
             if let Content::Text(text) = content {
-                let content_str = text.text;
+                let mut content_str = text.text;
+
+                // TL;DR processing: strip LICENSE and VERSION(S) sections if --tldr is set
+                if tldr {
+                    content_str = apply_tldr(&content_str);
+                }
+
                 let formatted_output = match format.as_str() {
                     "json" => {
                         // For search_crates, which may return JSON content
@@ -321,7 +372,7 @@ async fn run_test_tool(config: TestToolConfig) -> Result<()> {
                                             let description = crate_info.get("description").and_then(|v| v.as_str()).unwrap_or("No description");
                                             let downloads = crate_info.get("downloads").and_then(|v| v.as_u64()).unwrap_or(0);
                                             
-                                            text_output.push_str(&format!("{}. {} - {} (Downloads: {})\n", 
+                                            text_output.push_str(&format!("{}. {} - {} (Downloads: {})\n",
                                                 i + 1, name, description, downloads));
                                         }
                                         text_output
@@ -384,4 +435,45 @@ async fn run_test_tool(config: TestToolConfig) -> Result<()> {
     }
     
     Ok(())
+}
+#[cfg(test)]
+mod tldr_tests {
+    use super::apply_tldr;
+
+    #[test]
+    fn test_apply_tldr_removes_license_and_versions() {
+        let input = r#"
+# Versions
+This is version info.
+
+# LICENSE
+MIT License text.
+
+# Usage
+Some real documentation here.
+
+# Another Section
+More docs.
+"#;
+        let output = apply_tldr(input);
+        assert!(!output.to_lowercase().contains("license"));
+        assert!(!output.to_lowercase().contains("version"));
+        assert!(output.contains("Usage"));
+        assert!(output.contains("Another Section"));
+        assert!(output.contains("Some real documentation here."));
+        // Debug print for failure analysis
+        if output.to_lowercase().contains("license") {
+            println!("DEBUG OUTPUT:\n{}", output);
+        }
+    }
+
+    #[test]
+    fn test_apply_tldr_handles_no_license_or_versions() {
+        let input = r#"
+# Usage
+Some real documentation here.
+"#;
+        let output = apply_tldr(input);
+        assert_eq!(output.trim(), input.trim());
+    }
 }
