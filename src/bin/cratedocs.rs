@@ -75,6 +75,10 @@ enum Commands {
         /// Summarize output by stripping LICENSE and VERSION sections (TL;DR mode)
         #[arg(long)]
         tldr: bool,
+
+        /// Maximum number of tokens for output (token-aware truncation)
+        #[arg(long)]
+        max_tokens: Option<usize>,
         
         /// Enable debug logging
         #[arg(short, long)]
@@ -99,6 +103,7 @@ async fn main() -> Result<()> {
             format,
             output,
             tldr,
+            max_tokens,
             debug
         } => run_test_tool(TestToolConfig {
             tool,
@@ -110,6 +115,7 @@ async fn main() -> Result<()> {
             format,
             output,
             tldr,
+            max_tokens,
             debug
         }).await,
     }
@@ -216,6 +222,7 @@ struct TestToolConfig {
     format: Option<String>,
     output: Option<String>,
     tldr: bool,
+    max_tokens: Option<usize>,
     debug: bool,
 }
 
@@ -231,6 +238,7 @@ async fn run_test_tool(config: TestToolConfig) -> Result<()> {
         format,
         output,
         tldr,
+        max_tokens,
         debug,
     } = config;
     // Print help information if the tool is "help"
@@ -335,6 +343,21 @@ async fn run_test_tool(config: TestToolConfig) -> Result<()> {
         for content in result {
             if let Content::Text(text) = content {
                 let mut content_str = text.text;
+
+                // If max_tokens is set, truncate output to fit within the limit
+                if let Some(max_tokens) = max_tokens {
+                    match cratedocs_mcp::tools::count_tokens(&content_str) {
+                        Ok(token_count) if token_count > max_tokens => {
+                            // 🦨 skunky: This truncates by character, not token boundary. For true token-aware truncation, split and re-encode.
+                            let mut truncated = content_str.clone();
+                            while cratedocs_mcp::tools::count_tokens(&truncated).map_or(0, |c| c) > max_tokens && !truncated.is_empty() {
+                                truncated.pop();
+                            }
+                            content_str = truncated;
+                        }
+                        _ => {}
+                    }
+                }
 
                 // TL;DR processing: strip LICENSE and VERSION(S) sections if --tldr is set
                 if tldr {

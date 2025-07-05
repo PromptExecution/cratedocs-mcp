@@ -3,14 +3,13 @@ pub mod docs;
 pub use docs::DocRouter;
 pub use docs::docs::DocCache;
 
-use tokenizers::Tokenizer;
-use tokenizers::models::wordpiece::WordPiece;
 
-// Function to count tokens in a given text
+// Function to count tokens in a given text using a pretrained model from Hugging Face Hub
+use tokenizers::tokenizer::Tokenizer;
+
 pub fn count_tokens(text: &str) -> Result<usize, tokenizers::Error> {
-    // NOTE: You must provide a valid vocab file path for WordPiece
-    let model = WordPiece::from_file("path/to/vocab.txt").build()?;
-    let tokenizer = Tokenizer::new(model);
-    let tokens = tokenizer.encode(text, true)?;
-    Ok(tokens.get_ids().len())
+    // 🦨 skunky: This loads the tokenizer from Hugging Face Hub every call; cache for production.
+    let tokenizer = Tokenizer::from_pretrained("bert-base-cased", None)?;
+    let encoding = tokenizer.encode(text, true)?;
+    Ok(encoding.get_ids().len())
 }
