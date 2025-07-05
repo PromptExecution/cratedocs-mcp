@@ -11,9 +11,10 @@ This is an MCP (Model Context Protocol) server that provides tools for Rust crat
 ## Installation
 
 ```bash
-git clone https://github.com/d6e/cratedocs-mcp.git
+git clone https://github.com/promptexecution/cratedocs-mcp.git
 cd cratedocs-mcp
 cargo build --release
+cargo install --path .
 ```
 
 ## Running the Server
@@ -40,6 +41,9 @@ cargo run --bin cratedocs http --debug
 
 ### Directly Testing Documentation Tools
 
+# Enumerate crate items
+cargo run --bin cratedocs test --tool list_crate_items --crate-name serde --version 1.0.0 --item-type struct
+cargo run --bin cratedocs test --tool list_crate_items --crate-name tokio --version 1.28.0 --visibility pub --module tokio::sync
 You can directly test the documentation tools from the command line without starting a server:
 
 ```bash
@@ -189,47 +193,38 @@ in `mcp_settings.json`
 ```
 
 
-## License
 
-MIT License
+### 4. `list_crate_items`
 
-## MCP Tool: `list_crate_items`
+Enumerates all items in a specified Rust crate and version, optionally filtering by item type, visibility, or module path. Useful for exploring crate structure, generating concise listings for LLMs, or programmatically analyzing crate APIs.
 
-The `list_crate_items` tool enumerates all items in a specified Rust crate and version, optionally filtering by item type, visibility, or module path. This is useful for quickly exploring the structure of a crate, generating concise listings for LLMs, or programmatically analyzing crate APIs.
+**Parameters:**
+- `crate_name` (required): The name of the crate
+- `version` (required): The version of the crate
+- `item_type` (optional): Filter by item type (struct, enum, trait, fn, macro, mod)
+- `visibility` (optional): Filter by visibility (pub, private)
+- `module` (optional): Filter by module path (e.g., serde::de)
 
-### Usage
-
-```sh
-cargo run --bin cratedocs -- list-crate-items --crate-name serde --version 1.0.0
+**Example:**
+```json
+{
+  "name": "list_crate_items",
+  "arguments": {
+    "crate_name": "serde",
+    "version": "1.0.0",
+    "item_type": "struct"
+  }
+}
 ```
 
-#### With filters:
-
-- Filter by item type (e.g., struct, enum, trait, fn, macro, mod):
-
-  ```sh
-  cargo run --bin cratedocs -- list-crate-items --crate-name serde --version 1.0.0 --item-type struct
-  ```
-
-- Filter by visibility (e.g., pub, private):
-
-  ```sh
-  cargo run --bin cratedocs -- list-crate-items --crate-name serde --version 1.0.0 --visibility pub
-  ```
-
-- Filter by module path:
-
-  ```sh
-  cargo run --bin cratedocs -- list-crate-items --crate-name serde --version 1.0.0 --module serde::de
-  ```
-
-### Output
-
-The output is a concise, categorized list (JSON or markdown) showing each item's name, type, visibility, and module path.
-
-**Example (stub output):**
+**Example Output (stub):**
 ```
 Stub: list_crate_items for crate: serde, version: 1.0.0, filters: Some(ItemListFilters { item_type: Some("struct"), visibility: None, module: None })
 ```
 
 When implemented, the output will be a structured list of items matching the filters.
+
+
+## License
+
+MIT License

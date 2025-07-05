@@ -22,6 +22,8 @@ struct Cli {
 
 #[derive(Subcommand)]
 enum Commands {
+    /// Output the version and exit
+    Version,
     /// Run the server in stdin/stdout mode
     Stdio {
         /// Enable debug logging
@@ -40,11 +42,11 @@ enum Commands {
     },
     /// Test tools directly from the CLI
     Test {
-        /// The tool to test (lookup_crate, search_crates, lookup_item)
+        /// The tool to test (lookup_crate, search_crates, lookup_item, list_crate_items)
         #[arg(long, default_value = "lookup_crate")]
         tool: String,
         
-        /// Crate name for lookup_crate and lookup_item
+        /// Crate name for lookup_crate, lookup_item, and list_crate_items
         #[arg(long)]
         crate_name: Option<String>,
         
@@ -64,6 +66,18 @@ enum Commands {
         #[arg(long)]
         limit: Option<u32>,
         
+        /// Filter by item type for list_crate_items (e.g., struct, enum, trait)
+        #[arg(long)]
+        item_type: Option<String>,
+        
+        /// Filter by visibility for list_crate_items (e.g., pub, private)
+        #[arg(long)]
+        visibility: Option<String>,
+        
+        /// Filter by module path for list_crate_items (e.g., serde::de)
+        #[arg(long)]
+        module: Option<String>,
+        
         /// Output format (markdown, text, json)
         #[arg(long, default_value = "markdown")]
         format: Option<String>,
@@ -71,11 +85,11 @@ enum Commands {
         /// Output file path (if not specified, results will be printed to stdout)
         #[arg(long)]
         output: Option<String>,
-
+    
         /// Summarize output by stripping LICENSE and VERSION sections (TL;DR mode)
         #[arg(long)]
         tldr: bool,
-
+    
         /// Maximum number of tokens for output (token-aware truncation)
         #[arg(long)]
         max_tokens: Option<usize>,
@@ -84,24 +98,6 @@ enum Commands {
         #[arg(short, long)]
         debug: bool,
     },
-    /// List all items in a crate (using rust-analyzer)
-    ListCrateItems {
-        /// Crate name (e.g., serde)
-        #[arg(long)]
-        crate_name: String,
-        /// Crate version (e.g., 1.0.0)
-        #[arg(long)]
-        version: String,
-        /// Filter by item type (struct, enum, trait, fn, macro, mod)
-        #[arg(long)]
-        item_type: Option<String>,
-        /// Filter by visibility (pub, private)
-        #[arg(long)]
-        visibility: Option<String>,
-        /// Filter by module path (e.g., serde::de)
-        #[arg(long)]
-        module: Option<String>,
-    },
 }
 
 #[tokio::main]
@@ -109,6 +105,10 @@ async fn main() -> Result<()> {
     let cli = Cli::parse();
 
     match cli.command {
+        Commands::Version => {
+            println!("{}", env!("CARGO_PKG_VERSION"));
+            Ok(())
+        },
         Commands::Stdio { debug } => run_stdio_server(debug).await,
         Commands::Http { address, debug } => run_http_server(address, debug).await,
         Commands::Test {
@@ -118,6 +118,9 @@ async fn main() -> Result<()> {
             query,
             version,
             limit,
+            item_type,
+            visibility,
+            module,
             format,
             output,
             tldr,
@@ -130,29 +133,15 @@ async fn main() -> Result<()> {
             query,
             version,
             limit,
+            item_type,
+            visibility,
+            module,
             format,
             output,
             tldr,
             max_tokens,
             debug
         }).await,
-        Commands::ListCrateItems {
-            crate_name,
-            version,
-            item_type,
-            visibility,
-            module,
-        } => {
-            use cratedocs_mcp::tools::item_list::{list_crate_items, ItemListFilters};
-            let filters = ItemListFilters {
-                item_type,
-                visibility,
-                module,
-            };
-            let result = list_crate_items(&crate_name, &version, Some(filters)).await?;
-            println!("{}", result);
-            Ok(())
-        }
     }
 }
 
@@ -221,6 +210,8 @@ fn apply_tldr(input: &str) -> String {
     let tldr_section_re = Regex::new(r"(?i)^\s*#+\s*license\b|^\s*#+\s*version(s)?\b|^\s*#+license\b|^\s*#+version(s)?\b").unwrap();
     // Match any heading (for ending the skip)
     let heading_re = Regex::new(r"^\s*#+").unwrap();
+    // Match <detail> tags including start, end, and inline attributes
+    let detail_tag_re = Regex::new(r"<[/]?detail.*?>").unwrap();
 
     for line in input.lines() {
         // Start skipping if we hit a LICENSE or VERSION(S) heading
@@ -233,10 +224,12 @@ fn apply_tldr(input: &str) -> String {
             skip = false;
         }
         if !skip {
-            output.push(line);
+            // Remove <detail> tags from the line
+            let cleaned_line = detail_tag_re.replace_all(line, "").to_string();
+            output.push(cleaned_line.to_string());
         }
     }
-    output.join("\n")
+    output.iter().map(|s| s.as_str()).collect::<Vec<_>>().join("\n")
 }
 
 /// Configuration for the test tool
@@ -247,6 +240,9 @@ struct TestToolConfig {
     query: Option<String>,
     version: Option<String>,
     limit: Option<u32>,
+    item_type: Option<String>,
+    visibility: Option<String>,
+    module: Option<String>,
     format: Option<String>,
     output: Option<String>,
     tldr: bool,
@@ -268,6 +264,9 @@ async fn run_test_tool(config: TestToolConfig) -> Result<()> {
         tldr,
         max_tokens,
         debug,
+        item_type,
+        visibility,
+        module,
     } = config;
     // Print help information if the tool is "help"
     if tool == "help" {
@@ -342,6 +341,21 @@ async fn run_test_tool(config: TestToolConfig) -> Result<()> {
                 "query": query,
                 "limit": limit,
             })
+        },
+        "list_crate_items" => {
+            let crate_name = crate_name.ok_or_else(||
+                anyhow::anyhow!("--crate-name is required for list_crate_items tool"))?;
+            let version = version.ok_or_else(||
+                anyhow::anyhow!("--version is required for list_crate_items tool"))?;
+            
+            let arguments = json!({
+                "crate_name": crate_name,
+                "version": version,
+                "item_type": item_type,
+                "visibility": visibility,
+                "module": module,
+            });
+            arguments
         },
         _ => return Err(anyhow::anyhow!("Unknown tool: {}", tool)),
     };
@@ -584,3 +598,4 @@ Another version section.
     assert!(output.contains("Some real documentation here."));
 }
 }
+

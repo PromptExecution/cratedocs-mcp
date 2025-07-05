@@ -1,3 +1,4 @@
+use crate::tools::item_list;
 use std::{future::Future, pin::Pin, sync::Arc};
 
 use mcp_core::{
@@ -321,6 +322,36 @@ impl mcp_server::Router for DocRouter {
                     "required": ["crate_name", "item_path"]
                 }),
             ),
+            Tool::new(
+                "list_crate_items".to_string(),
+                "Enumerate all items in a Rust crate (optionally filtered by type, visibility, or module). Returns a concise, categorized list.".to_string(),
+                json!({
+                    "type": "object",
+                    "properties": {
+                        "crate_name": {
+                            "type": "string",
+                            "description": "The name of the crate"
+                        },
+                        "version": {
+                            "type": "string",
+                            "description": "The version of the crate"
+                        },
+                        "item_type": {
+                            "type": "string",
+                            "description": "Filter by item type (struct, enum, trait, fn, macro, mod)"
+                        },
+                        "visibility": {
+                            "type": "string",
+                            "description": "Filter by visibility (pub, private)"
+                        },
+                        "module": {
+                            "type": "string",
+                            "description": "Filter by module path (e.g., serde::de)"
+                        }
+                    },
+                    "required": ["crate_name", "version"]
+                }),
+            ),
         ]
     }
 
@@ -385,6 +416,43 @@ impl mcp_server::Router for DocRouter {
                     
                     let doc = this.lookup_item(crate_name, item_path, version).await?;
                     Ok(vec![Content::text(doc)])
+                }
+                "list_crate_items" => {
+                    let crate_name = arguments
+                        .get("crate_name")
+                        .and_then(|v| v.as_str())
+                        .ok_or_else(|| ToolError::InvalidParameters("crate_name is required".to_string()))?
+                        .to_string();
+                    let version = arguments
+                        .get("version")
+                        .and_then(|v| v.as_str())
+                        .ok_or_else(|| ToolError::InvalidParameters("version is required".to_string()))?
+                        .to_string();
+                    let item_type = arguments
+                        .get("item_type")
+                        .and_then(|v| v.as_str())
+                        .map(|s| s.to_string());
+                    let visibility = arguments
+                        .get("visibility")
+                        .and_then(|v| v.as_str())
+                        .map(|s| s.to_string());
+                    let module = arguments
+                        .get("module")
+                        .and_then(|v| v.as_str())
+                        .map(|s| s.to_string());
+                    let filters = item_list::ItemListFilters {
+                        item_type,
+                        visibility,
+                        module,
+                    };
+                    let result = item_list::list_crate_items(
+                        &crate_name,
+                        &version,
+                        Some(filters),
+                    )
+                    .await
+                    .map_err(|e| ToolError::ExecutionError(format!("list_crate_items failed: {}", e)))?;
+                    Ok(vec![Content::text(result)])
                 }
                 _ => Err(ToolError::NotFound(format!("Tool {} not found", tool_name))),
             }

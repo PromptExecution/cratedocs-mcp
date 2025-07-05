@@ -24,3 +24,4 @@ Thumbs.db
 *.swo
 output_tests
 target/*
+context_portal/*

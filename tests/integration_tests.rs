@@ -13,7 +13,7 @@ async fn test_doc_router_initialization() {
     
     // Tools should be available and correctly configured
     let tools = router.list_tools();
-    assert_eq!(tools.len(), 3);
+    assert_eq!(tools.len(), 4);
     
     // Check specific tool schemas
     let lookup_crate_tool = tools.iter().find(|t| t.name == "lookup_crate").unwrap();
@@ -68,8 +68,8 @@ async fn test_end_to_end_crate_lookup() {
     // The response should be HTML from docs.rs
     match &content[0] {
         mcp_core::Content::Text(text) => {
-            assert!(text.text.contains("<!DOCTYPE html>"));
-            assert!(text.text.contains("serde"));
+            // Output is now markdown, not HTML
+            assert!(text.text.to_lowercase().contains("serde"));
         },
         _ => panic!("Expected text content"),
     }
