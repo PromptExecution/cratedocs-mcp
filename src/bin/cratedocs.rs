@@ -84,24 +84,6 @@ enum Commands {
         #[arg(short, long)]
         debug: bool,
     },
-    /// List all items in a crate (using rust-analyzer)
-    ListCrateItems {
-        /// Crate name (e.g., serde)
-        #[arg(long)]
-        crate_name: String,
-        /// Crate version (e.g., 1.0.0)
-        #[arg(long)]
-        version: String,
-        /// Filter by item type (struct, enum, trait, fn, macro, mod)
-        #[arg(long)]
-        item_type: Option<String>,
-        /// Filter by visibility (pub, private)
-        #[arg(long)]
-        visibility: Option<String>,
-        /// Filter by module path (e.g., serde::de)
-        #[arg(long)]
-        module: Option<String>,
-    },
 }
 
 #[tokio::main]
@@ -136,23 +118,6 @@ async fn main() -> Result<()> {
             max_tokens,
             debug
         }).await,
-        Commands::ListCrateItems {
-            crate_name,
-            version,
-            item_type,
-            visibility,
-            module,
-        } => {
-            use cratedocs_mcp::tools::item_list::{list_crate_items, ItemListFilters};
-            let filters = ItemListFilters {
-                item_type,
-                visibility,
-                module,
-            };
-            let result = list_crate_items(&crate_name, &version, Some(filters)).await?;
-            println!("{}", result);
-            Ok(())
-        }
     }
 }
 
