@@ -348,11 +348,15 @@ async fn run_test_tool(config: TestToolConfig) -> Result<()> {
                 if let Some(max_tokens) = max_tokens {
                     match cratedocs_mcp::tools::count_tokens(&content_str) {
                         Ok(token_count) if token_count > max_tokens => {
-                            // 🦨 skunky: This truncates by character, not token boundary. For true token-aware truncation, split and re-encode.
+                            // Truncate by character, then to previous word boundary, and append Mandarin to indicate truncation.
                             let mut truncated = content_str.clone();
                             while cratedocs_mcp::tools::count_tokens(&truncated).map_or(0, |c| c) > max_tokens && !truncated.is_empty() {
                                 truncated.pop();
                             }
+                            if let Some(last_space) = truncated.rfind(' ') {
+                                truncated.truncate(last_space);
+                            }
+                            truncated.push_str(" 内容被截断");
                             content_str = truncated;
                         }
                         _ => {}
