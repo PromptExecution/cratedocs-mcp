@@ -440,12 +440,12 @@ impl mcp_server::Router for DocRouter {
                         .get("module")
                         .and_then(|v| v.as_str())
                         .map(|s| s.to_string());
-                    let filters = cratedocs_mcp::tools::item_list::ItemListFilters {
+                    let filters = item_list::ItemListFilters {
                         item_type,
                         visibility,
                         module,
                     };
-                    let result = cratedocs_mcp::tools::item_list::list_crate_items(
+                    let result = item_list::list_crate_items(
                         &crate_name,
                         &version,
                         Some(filters),
