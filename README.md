@@ -150,3 +150,44 @@ This server implements the Model Context Protocol (MCP) which allows it to be ea
 ## License
 
 MIT License
+
+## MCP Tool: `list_crate_items`
+
+The `list_crate_items` tool enumerates all items in a specified Rust crate and version, optionally filtering by item type, visibility, or module path. This is useful for quickly exploring the structure of a crate, generating concise listings for LLMs, or programmatically analyzing crate APIs.
+
+### Usage
+
+```sh
+cargo run --bin cratedocs -- list-crate-items --crate-name serde --version 1.0.0
+```
+
+#### With filters:
+
+- Filter by item type (e.g., struct, enum, trait, fn, macro, mod):
+
+  ```sh
+  cargo run --bin cratedocs -- list-crate-items --crate-name serde --version 1.0.0 --item-type struct
+  ```
+
+- Filter by visibility (e.g., pub, private):
+
+  ```sh
+  cargo run --bin cratedocs -- list-crate-items --crate-name serde --version 1.0.0 --visibility pub
+  ```
+
+- Filter by module path:
+
+  ```sh
+  cargo run --bin cratedocs -- list-crate-items --crate-name serde --version 1.0.0 --module serde::de
+  ```
+
+### Output
+
+The output is a concise, categorized list (JSON or markdown) showing each item's name, type, visibility, and module path.
+
+**Example (stub output):**
+```
+Stub: list_crate_items for crate: serde, version: 1.0.0, filters: Some(ItemListFilters { item_type: Some("struct"), visibility: None, module: None })
+```
+
+When implemented, the output will be a structured list of items matching the filters.
