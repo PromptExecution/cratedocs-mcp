@@ -84,6 +84,24 @@ enum Commands {
         #[arg(short, long)]
         debug: bool,
     },
+    /// List all items in a crate (using rust-analyzer)
+    ListCrateItems {
+        /// Crate name (e.g., serde)
+        #[arg(long)]
+        crate_name: String,
+        /// Crate version (e.g., 1.0.0)
+        #[arg(long)]
+        version: String,
+        /// Filter by item type (struct, enum, trait, fn, macro, mod)
+        #[arg(long)]
+        item_type: Option<String>,
+        /// Filter by visibility (pub, private)
+        #[arg(long)]
+        visibility: Option<String>,
+        /// Filter by module path (e.g., serde::de)
+        #[arg(long)]
+        module: Option<String>,
+    },
 }
 
 #[tokio::main]
@@ -118,6 +136,23 @@ async fn main() -> Result<()> {
             max_tokens,
             debug
         }).await,
+        Commands::ListCrateItems {
+            crate_name,
+            version,
+            item_type,
+            visibility,
+            module,
+        } => {
+            use cratedocs_mcp::tools::item_list::{list_crate_items, ItemListFilters};
+            let filters = ItemListFilters {
+                item_type,
+                visibility,
+                module,
+            };
+            let result = list_crate_items(&crate_name, &version, Some(filters)).await?;
+            println!("{}", result);
+            Ok(())
+        }
     }
 }
 
@@ -182,32 +217,25 @@ fn apply_tldr(input: &str) -> String {
     let mut output = Vec::new();
     let mut skip = false;
 
-    let license_re = Regex::new(r"(?i)^\s*#+\s*license\b").unwrap();
-    let version_re = Regex::new(r"(?i)^\s*#+\s*version(s)?\b").unwrap();
-    let heading_re = Regex::new(r"^\s*#+\s*\S+").unwrap();
+    // Match any heading (with or without space) for LICENSE or VERSION(S)
+    let tldr_section_re = Regex::new(r"(?i)^\s*#+\s*license\b|^\s*#+\s*version(s)?\b|^\s*#+license\b|^\s*#+version(s)?\b").unwrap();
+    // Match any heading (for ending the skip)
+    let heading_re = Regex::new(r"^\s*#+").unwrap();
 
-    let mut just_skipped_section = false;
     for line in input.lines() {
         // Start skipping if we hit a LICENSE or VERSION(S) heading
-        if !skip && (license_re.is_match(line) || version_re.is_match(line)) {
+        if !skip && tldr_section_re.is_match(line) {
             skip = true;
-            just_skipped_section = true;
             continue; // skip the heading line itself
         }
-        // If we just skipped a section heading, also skip blank lines and lines containing only "license" or "versions"
-        if just_skipped_section && (line.trim().is_empty() || line.trim().eq_ignore_ascii_case("license") || line.trim().eq_ignore_ascii_case("versions") || line.trim().eq_ignore_ascii_case("version")) {
-            continue;
-        }
         // Stop skipping at the next heading (but do not skip the heading itself)
-        if skip && heading_re.is_match(line) {
+        if skip && heading_re.is_match(line) && !tldr_section_re.is_match(line) {
             skip = false;
-            just_skipped_section = false;
         }
         if !skip {
             output.push(line);
         }
     }
-    // If the section to skip is at the end, skip will remain true and those lines will be omitted.
     output.join("\n")
 }
 

@@ -1,4 +1,5 @@
 pub mod docs;
+pub mod item_list;
 
 pub use docs::DocRouter;
 pub use docs::docs::DocCache;
