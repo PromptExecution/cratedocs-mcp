@@ -210,6 +210,8 @@ fn apply_tldr(input: &str) -> String {
     let tldr_section_re = Regex::new(r"(?i)^\s*#+\s*license\b|^\s*#+\s*version(s)?\b|^\s*#+license\b|^\s*#+version(s)?\b").unwrap();
     // Match any heading (for ending the skip)
     let heading_re = Regex::new(r"^\s*#+").unwrap();
+    // Match <detail> tags including start, end, and inline attributes
+    let detail_tag_re = Regex::new(r"<[/]?detail.*?>").unwrap();
 
     for line in input.lines() {
         // Start skipping if we hit a LICENSE or VERSION(S) heading
@@ -222,10 +224,12 @@ fn apply_tldr(input: &str) -> String {
             skip = false;
         }
         if !skip {
-            output.push(line);
+            // Remove <detail> tags from the line
+            let cleaned_line = detail_tag_re.replace_all(line, "").to_string();
+            output.push(cleaned_line.to_string());
         }
     }
-    output.join("\n")
+    output.iter().map(|s| s.as_str()).collect::<Vec<_>>().join("\n")
 }
 
 /// Configuration for the test tool
@@ -594,3 +598,4 @@ Another version section.
     assert!(output.contains("Some real documentation here."));
 }
 }
+
