@@ -19,6 +19,9 @@ mcp-server = { git = "https://github.com/modelcontextprotocol/rust-sdk", rev = "
 mcp-core = { git = "https://github.com/modelcontextprotocol/rust-sdk", rev = "c0bd94dd85a3535cb1580424465140d51bab2a17", package = "mcp-core" }
 mcp-macros = { git = "https://github.com/modelcontextprotocol/rust-sdk", rev = "c0bd94dd85a3535cb1580424465140d51bab2a17", package = "mcp-macros" }
 
+# Tokenizer dependency for token count functionality
+tokenizers = { version = "0.21.2" }
+
 # HTTP and networking
 tokio = { version = "1", features = ["full"] }
 reqwest = { version = "0.11", features = ["json"] }
