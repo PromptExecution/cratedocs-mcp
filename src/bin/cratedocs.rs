@@ -32,6 +32,9 @@ enum Commands {
         /// Summarize output by stripping LICENSE and VERSION sections (TL;DR mode)
         #[arg(long)]
         tldr: bool,
+        /// Maximum number of tokens for output (token-aware truncation)
+        #[arg(long)]
+        max_tokens: Option<usize>,
     },
     /// Run the server with HTTP/SSE interface
     Http {
@@ -112,7 +115,7 @@ async fn main() -> Result<()> {
             println!("{}", env!("CARGO_PKG_VERSION"));
             Ok(())
         },
-        Commands::Stdio { debug, tldr } => run_stdio_server(debug, tldr).await,
+        Commands::Stdio { debug, tldr, max_tokens } => run_stdio_server(debug, tldr, max_tokens).await,
         Commands::Http { address, debug } => run_http_server(address, debug).await,
         Commands::Test {
             tool,
@@ -148,7 +151,7 @@ async fn main() -> Result<()> {
     }
 }
 
-async fn run_stdio_server(debug: bool, tldr: bool) -> Result<()> {
+async fn run_stdio_server(debug: bool, tldr: bool, max_tokens: Option<usize>) -> Result<()> {
     // Set up file appender for logging
     let file_appender = RollingFileAppender::new(Rotation::DAILY, "logs", "stdio-server.log");
 
@@ -168,7 +171,7 @@ async fn run_stdio_server(debug: bool, tldr: bool) -> Result<()> {
 
     // Create an instance of our documentation router
     // If tldr is needed globally, you may want to pass it to DocRouter or handle it in tool output
-    let router = RouterService(DocRouter::new_with_tldr(tldr));
+    let router = RouterService(DocRouter::new_with_tldr_and_max_tokens(tldr, max_tokens));
 
     // Create and run the server
     let server = Server::new(router);

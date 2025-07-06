@@ -49,6 +49,7 @@ pub struct DocRouter {
     pub client: Client,
     pub cache: DocCache,
     pub tldr: bool,
+    pub max_tokens: Option<usize>,
 }
 
 impl Default for DocRouter {
@@ -58,15 +59,19 @@ impl Default for DocRouter {
 }
 
 impl DocRouter {
-    pub fn new_with_tldr(tldr: bool) -> Self {
+    pub fn new_with_tldr_and_max_tokens(tldr: bool, max_tokens: Option<usize>) -> Self {
         Self {
             client: Client::new(),
             cache: DocCache::new(),
             tldr,
+            max_tokens,
         }
     }
+    pub fn new_with_tldr(tldr: bool) -> Self {
+        Self::new_with_tldr_and_max_tokens(tldr, None)
+    }
     pub fn new() -> Self {
-        Self::new_with_tldr(false)
+        Self::new_with_tldr_and_max_tokens(false, None)
     }
 
     // Fetch crate documentation from docs.rs
@@ -370,6 +375,7 @@ impl mcp_server::Router for DocRouter {
         let tool_name = tool_name.to_string();
         let arguments = arguments.clone();
         let tldr = self.tldr;
+        let max_tokens = self.max_tokens;
 
         Box::pin(async move {
             let mut result = match tool_name.as_str() {
@@ -469,6 +475,27 @@ impl mcp_server::Router for DocRouter {
                 for content in &mut result {
                     if let Content::Text(text) = content {
                         text.text = tldr::apply_tldr(&text.text);
+                    }
+                }
+            }
+
+            // Apply max_tokens truncation if enabled
+            if let Some(max_tokens) = max_tokens {
+                for content in &mut result {
+                    if let Content::Text(text) = content {
+                        if let Ok(token_count) = crate::tools::count_tokens(&text.text) {
+                            if token_count > max_tokens {
+                                let mut truncated = text.text.clone();
+                                while crate::tools::count_tokens(&truncated).map_or(0, |c| c) > max_tokens && !truncated.is_empty() {
+                                    truncated.pop();
+                                }
+                                if let Some(last_space) = truncated.rfind(' ') {
+                                    truncated.truncate(last_space);
+                                }
+                                truncated.push_str(" 内容被截断");
+                                text.text = truncated;
+                            }
+                        }
                     }
                 }
             }
