@@ -41,14 +41,15 @@ cargo run --bin cratedocs http --debug
 
 ### Directly Testing Documentation Tools
 
-# Enumerate crate items
-cargo run --bin cratedocs test --tool list_crate_items --crate-name serde --version 1.0.0 --item-type struct
-cargo run --bin cratedocs test --tool list_crate_items --crate-name tokio --version 1.28.0 --visibility pub --module tokio::sync
 You can directly test the documentation tools from the command line without starting a server:
 
 ```bash
 # Get help for the test command
 cargo run --bin cratedocs test --tool help
+
+# Enumerate crate items (step by step)
+cargo run --bin cratedocs test --tool list_crate_items --crate-name serde --version 1.0.0 --item-type struct
+cargo run --bin cratedocs test --tool list_crate_items --crate-name tokio --version 1.28.0 --visibility pub --module tokio::sync
 
 # Look up crate documentation
 cargo run --bin cratedocs test --tool lookup_crate --crate-name tokio
@@ -74,6 +75,9 @@ cargo run --bin cratedocs test --tool lookup_crate --crate-name tokio --output t
 
 # Summarize output by stripping LICENSE and VERSION sections, limits to xxxxx tokens (uses huggingface tokenizer)
 cargo run --bin cratedocs test --tool lookup_crate --crate-name tokio --tldr --max_tokens 48000
+
+
+
 ```
 
 By default, the HTTP server will listen on `http://127.0.0.1:8080/sse`.

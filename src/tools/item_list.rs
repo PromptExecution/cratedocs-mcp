@@ -4,7 +4,7 @@ use std::fs;
 use std::path::Path;
 use tar::Archive;
 use flate2::read::GzDecoder;
-use syn::{File, Item};
+use syn::{Item};
 
 /// Represents filters for item listing.
 #[derive(Debug)]

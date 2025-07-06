@@ -9,7 +9,7 @@ use std::net::SocketAddr;
 use tokio::io::{stdin, stdout};
 use tracing_appender::rolling::{RollingFileAppender, Rotation};
 use tracing_subscriber::{self, EnvFilter, layer::SubscriberExt, util::SubscriberInitExt};
-use regex::Regex;
+use cratedocs_mcp::tools::tldr;
 
 #[derive(Parser)]
 #[command(author, version = "0.2.0", about, long_about = None)]
@@ -29,6 +29,9 @@ enum Commands {
         /// Enable debug logging
         #[arg(short, long)]
         debug: bool,
+        /// Summarize output by stripping LICENSE and VERSION sections (TL;DR mode)
+        #[arg(long)]
+        tldr: bool,
     },
     /// Run the server with HTTP/SSE interface
     Http {
@@ -109,7 +112,7 @@ async fn main() -> Result<()> {
             println!("{}", env!("CARGO_PKG_VERSION"));
             Ok(())
         },
-        Commands::Stdio { debug } => run_stdio_server(debug).await,
+        Commands::Stdio { debug, tldr } => run_stdio_server(debug, tldr).await,
         Commands::Http { address, debug } => run_http_server(address, debug).await,
         Commands::Test {
             tool,
@@ -145,7 +148,7 @@ async fn main() -> Result<()> {
     }
 }
 
-async fn run_stdio_server(debug: bool) -> Result<()> {
+async fn run_stdio_server(debug: bool, tldr: bool) -> Result<()> {
     // Set up file appender for logging
     let file_appender = RollingFileAppender::new(Rotation::DAILY, "logs", "stdio-server.log");
 
@@ -164,13 +167,16 @@ async fn run_stdio_server(debug: bool) -> Result<()> {
     tracing::info!("Starting MCP documentation server in STDIN/STDOUT mode");
 
     // Create an instance of our documentation router
-    let router = RouterService(DocRouter::new());
+    // If tldr is needed globally, you may want to pass it to DocRouter or handle it in tool output
+    let router = RouterService(DocRouter::new_with_tldr(tldr));
 
     // Create and run the server
     let server = Server::new(router);
     let transport = ByteTransport::new(stdin(), stdout());
 
     tracing::info!("Documentation server initialized and ready to handle requests");
+    // Note: tldr is parsed and available, but not yet used in stdio mode.
+    // If you want to apply TLDR globally, you would need to modify DocRouter or Server to use it.
     Ok(server.run(transport).await?)
 }
 
@@ -201,36 +207,6 @@ async fn run_http_server(address: String, debug: bool) -> Result<()> {
 }
 
 // --- TLDR Helper Function ---
-fn apply_tldr(input: &str) -> String {
-    // Remove LICENSE and VERSION(S) sections by skipping lines between those headings and the next heading or EOF.
-    let mut output = Vec::new();
-    let mut skip = false;
-
-    // Match any heading (with or without space) for LICENSE or VERSION(S)
-    let tldr_section_re = Regex::new(r"(?i)^\s*#+\s*license\b|^\s*#+\s*version(s)?\b|^\s*#+license\b|^\s*#+version(s)?\b").unwrap();
-    // Match any heading (for ending the skip)
-    let heading_re = Regex::new(r"^\s*#+").unwrap();
-    // Match <detail> tags including start, end, and inline attributes
-    let detail_tag_re = Regex::new(r"<[/]?detail.*?>").unwrap();
-
-    for line in input.lines() {
-        // Start skipping if we hit a LICENSE or VERSION(S) heading
-        if !skip && tldr_section_re.is_match(line) {
-            skip = true;
-            continue; // skip the heading line itself
-        }
-        // Stop skipping at the next heading (but do not skip the heading itself)
-        if skip && heading_re.is_match(line) && !tldr_section_re.is_match(line) {
-            skip = false;
-        }
-        if !skip {
-            // Remove <detail> tags from the line
-            let cleaned_line = detail_tag_re.replace_all(line, "").to_string();
-            output.push(cleaned_line.to_string());
-        }
-    }
-    output.iter().map(|s| s.as_str()).collect::<Vec<_>>().join("\n")
-}
 
 /// Configuration for the test tool
 struct TestToolConfig {
@@ -407,7 +383,7 @@ async fn run_test_tool(config: TestToolConfig) -> Result<()> {
 
                 // TL;DR processing: strip LICENSE and VERSION(S) sections if --tldr is set
                 if tldr {
-                    content_str = apply_tldr(&content_str);
+                    content_str = tldr::apply_tldr(&content_str);
                 }
 
                 let formatted_output = match format.as_str() {
@@ -507,7 +483,7 @@ async fn run_test_tool(config: TestToolConfig) -> Result<()> {
 }
 #[cfg(test)]
 mod tldr_tests {
-    use super::apply_tldr;
+    use cratedocs_mcp::tools::tldr::apply_tldr;
 
     #[test]
     fn test_apply_tldr_removes_license_and_versions() {

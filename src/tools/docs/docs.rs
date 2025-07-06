@@ -1,4 +1,5 @@
 use crate::tools::item_list;
+use crate::tools::tldr;
 use std::{future::Future, pin::Pin, sync::Arc};
 
 use mcp_core::{
@@ -47,6 +48,7 @@ impl DocCache {
 pub struct DocRouter {
     pub client: Client,
     pub cache: DocCache,
+    pub tldr: bool,
 }
 
 impl Default for DocRouter {
@@ -56,11 +58,15 @@ impl Default for DocRouter {
 }
 
 impl DocRouter {
-    pub fn new() -> Self {
+    pub fn new_with_tldr(tldr: bool) -> Self {
         Self {
             client: Client::new(),
             cache: DocCache::new(),
+            tldr,
         }
+    }
+    pub fn new() -> Self {
+        Self::new_with_tldr(false)
     }
 
     // Fetch crate documentation from docs.rs
@@ -363,9 +369,10 @@ impl mcp_server::Router for DocRouter {
         let this = self.clone();
         let tool_name = tool_name.to_string();
         let arguments = arguments.clone();
+        let tldr = self.tldr;
 
         Box::pin(async move {
-            match tool_name.as_str() {
+            let mut result = match tool_name.as_str() {
                 "lookup_crate" => {
                     let crate_name = arguments
                         .get("crate_name")
@@ -455,7 +462,18 @@ impl mcp_server::Router for DocRouter {
                     Ok(vec![Content::text(result)])
                 }
                 _ => Err(ToolError::NotFound(format!("Tool {} not found", tool_name))),
+            }?;
+
+            // Apply TLDR filter if enabled
+            if tldr {
+                for content in &mut result {
+                    if let Content::Text(text) = content {
+                        text.text = tldr::apply_tldr(&text.text);
+                    }
+                }
             }
+
+            Ok(result)
         })
     }
 
